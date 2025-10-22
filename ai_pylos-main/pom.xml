@@ -14,6 +14,7 @@
         <module>pylos-gui</module>
         <module>pylos-student</module>
         <module>pylos-ml</module>
+        <module>Documentation</module>
     </modules>
 
     <properties>
