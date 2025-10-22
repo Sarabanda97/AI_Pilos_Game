@@ -16,19 +16,19 @@ public class PlayerFactoryStudent extends PylosPlayerFactory {
     @Override
     protected void createTypes() {
 
-        /* example */
-        add(new PylosPlayerType("Student") {
+        add(new PylosPlayerType("Student - Minimax") {
             @Override
             public PylosPlayer create() {
                 return new StudentPlayer();
             }
         });
 
-        add(new PylosPlayerType("Student - Random") {
+        add(new PylosPlayerType("Student - Random Fit") {
             @Override
             public PylosPlayer create() {
                 return new StudentPlayerRandomFit();
             }
         });
     }
+
 }
