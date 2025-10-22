@@ -1,140 +1,161 @@
-# Student – Minimax (Part 1)
+# 🧠 Student – Minimax (Part 1)
 
-## Overview
-This player implements a **Minimax search algorithm** for the Pylos board game using the provided `PylosGameSimulator`.  
-It explores future moves up to a fixed depth, evaluates the resulting board states with a lightweight heuristic, and chooses the move that maximizes its advantage assuming the opponent plays optimally.
+## 📘 Overview
+This project implements a **Minimax-based AI player** for the board game **Pylos**, built on top of the provided `PylosGameSimulator`.  
+The algorithm explores possible move sequences up to a fixed depth, evaluates each board state with a strategic heuristic, and selects the move that **maximizes the AI’s advantage** assuming the opponent plays optimally.
+
+> 🎯 **Goal (Part 1)**  
+> Implement a fully working **Minimax search** with:
+> - Correct simulation and undo mechanics
+> - A consistent and meaningful evaluation function
 
 ---
 
-## How It Works
+## ♟️ Core Idea
+**Minimax** is a recursive search algorithm used in two-player games.  
+It assumes:
+- The **maximizing player** (our AI) tries to achieve the **highest score**.
+- The **minimizing player** (the opponent) responds with their **best counter-move**.
 
-### 1. Move Generation
-At every turn the player generates all **legal actions**:
-- Placing a **reserve sphere** on any legal location.
-- **Moving upward** an already placed sphere.
+This process forms a **game tree** of alternating turns.  
+By exploring this tree, the AI chooses the move that guarantees the best achievable outcome against an optimal opponent.
 
-This logic is handled in the method:
+---
+
+## ⚙️ Algorithm Details
+
+### 1️⃣ Move Generation
+On every turn, the player lists all **legal actions**:
+- **Placing a reserve sphere** on a valid location.
+- **Moving an existing sphere upward**, if legally supported.
+
 ```java
-generateMoves(PylosBoard board, PylosPlayer player);
-
+generateMoves(PylosBoard board, PylosPlayer player)
+This method collects all valid moves for a given player and returns them as (sphere, location) pairs.
 ```
-2. Simulation and Undo
-Each possible move is simulated using:
 
-java
+### 2️⃣ Simulation and Undo
+Each move is tested virtually using the PylosGameSimulator.
+This simulator supports both applying and undoing moves, allowing the algorithm to explore hypothetical futures safely.
+
+Example Simulation Cycle
+```java
 Copiar código
-sim.moveSphere(...)
-After exploring that move recursively, the algorithm undoes the change using the corresponding undo call to restore the simulator’s state:
+sim.moveSphere(sphere, location);
+double value = -negamax(sim, depth - 1, -beta, -alpha);
+sim.undoMoveSphere(sphere, previousLocation, prevState, prevColor);
+```
+Undo Operations
 
-undoAddSphere(...) if a reserve sphere was placed.
+```java
+undoAddSphere(...)         // For reserve placements
+undoMoveSphere(...)        // For upward moves
+undoRemoveFirstSphere(...) // For first removal
+undoRemoveSecondSphere(...)// For optional second removal
+undoPass(...)              // For optional passes
+```
 
-undoMoveSphere(...) if an existing sphere was moved.
+Each recursive branch leaves the simulator in a consistent state, ensuring no side effects between moves.
 
-undoRemoveFirstSphere(...) or undoRemoveSecondSphere(...) for removal phases.
+### 3️⃣ Recursive Search (Negamax Form)
+The algorithm uses the Negamax variant of Minimax, simplifying code by merging both player perspectives.
 
-pass() and undoPass(...) for optional second removals.
+#### Process
+1. For each possible move:
 
-This ensures the simulator always returns to the exact previous state before exploring the next move.
+   - Simulate the move.
+   - Recursively evaluate the resulting state. 
+   - Negate the returned value (since what benefits one player harms the other).
 
-3. Recursive Search (Minimax)
-The recursive search is implemented with the negamax form of the minimax algorithm, which treats both players symmetrically.
+2. Keep the move with the maximum score.
 
-At each level:
+#### Stopping Conditions
+- Maximum depth reached (MAX_DEPTH = 3)
+- The simulator reports COMPLETED game state
+- This recursion allows the AI to look ahead several turns and anticipate the opponent’s best responses.
 
-The algorithm explores all legal moves for the current player.
+### 4️⃣ Evaluation Function
+When the depth limit is reached, the algorithm uses a heuristic evaluation to estimate the advantage of each player.
 
-For each move, it calls itself recursively with reduced depth.
+#### Heuristic Considerations
+- Reserves → More spheres left = more flexibility
+- Height → Higher spheres = stronger positional control
 
-It inverts the returned score (-value) because what is good for one player is bad for the other.
-
-The recursion stops when either:
-
-The maximum depth is reached, or
-
-The game state is COMPLETED (no more legal moves).
-
-4. Evaluation Function
-At leaf nodes, the algorithm evaluates the board with a simple heuristic that rewards:
-
-Having more reserve spheres (flexibility to play).
-
-Having spheres placed on higher layers (progress toward the top).
-
-java
-Copiar código
+```java
 score = 10 * (myReserves - oppReserves)
-       + (sumZ(mySpheres) - sumZ(oppSpheres));
-This balances short-term mobility and long-term control of the board.
+      + (sumZ(mySpheres) - sumZ(oppSpheres));
+```
 
-5. Removal Policy
-When a removal is required:
+#### Interpretation
+| Component | Description                        | Weight |
+| --------- | ---------------------------------- | ------ |
+| Reserves  | Prioritizes keeping spare spheres  | ×10    |
+| Height    | Encourages control of upper layers | ×1     |
 
-The player removes the sphere that maximizes mobility after removal, measured as the number of legal upward moves that remain available.
 
-During the optional second removal phase, the player passes unless removing a sphere is at least neutral (non-negative effect).
+💡 A higher score favors the AI.
+This heuristic is intentionally simple but effective for early gameplay phases.
 
-This keeps the structure stable and avoids unnecessary weakening of the player’s position.
+### 5️⃣ Removal Logic
+After completing a square, the player may remove one or two of their spheres.
+- First removal: Choose the sphere that preserves future mobility.
 
-6. Parameters
-Search depth (MAX_DEPTH): default is 3.
-Can be increased to 4 if computation time allows.
+- Second removal (optional): Perform only if beneficial; otherwise pass.
 
-Simulator: PylosGameSimulator manages move execution and undo operations safely.
+This removal logic operates outside the recursive search for efficiency, but follows the same heuristic principles.
 
-Undo logic: each simulated action is paired with its correct undo call to keep the internal state consistent.
+6️⃣ Parameters
 
-7. Results
-At depth 3:
+| Parameter    | Meaning                                         | Default              |
+| ------------ | ----------------------------------------------- | -------------------- |
+| `MAX_DEPTH`  | Maximum recursion depth                         | `3`                  |
+| `Simulator`  | Runs virtual moves and supports undo operations | `PylosGameSimulator` |
+| `Evaluation` | Simple heuristic based on reserves and height   | *(see above)*        |
 
-Against Student – Random Fit, this player consistently wins the majority of games.
+You may increase MAX_DEPTH to 4 if computation time allows — depth 3 already provides strong results.
 
-Against Codes – Best Fit, it already wins several games (about 3 out of 10 in testing), proving the heuristic and search are effective.
+🧩 Performance Summary
 
-8. How to Run
-Run via GUI
-bash
-Copiar código
+| Opponent                 | Average Result                | Notes                                               |
+| ------------------------ | ----------------------------- | --------------------------------------------------- |
+| **Student – Random Fit** | AI wins the majority of games | Confirms correct Minimax logic                      |
+| **Codes – Best Fit**     | ~30% win rate (3/10 tests)    | Demonstrates strategic play and a working heuristic |
+
+The observed results confirm correct simulation behavior, recursive evaluation, and turn-based decision-making.
+
+▶️ How to Run
+
+🖥️ GUI Mode
+
+```bash
 cd ai_pylos-main
 mvn -q -DskipTests package
 java -jar ./pylos-gui/target/pylos-gui-1.0-SNAPSHOT.jar
-Then select:
+```
 
-Player 1: Student – Minimax
+In the GUI:
 
-Player 2: Codes – Best Fit or Codes – Minimax
-Press Start to play.
+1. Select Student – Minimax as Player 1.
+2. Select Codes – Best Fit (or Codes – Minimax) as Player 2.
+3. Press Start to watch them play.
 
-Run via Command Line (Batch Mode)
-If the project includes be.kuleuven.pylos.main.PylosMain, you can execute:
+💻 Command-Line Mode (Batch / Tournament)
+If the repository includes be.kuleuven.pylos.main.PylosMain, you can run a full round-robin tournament:
 
-bash
-Copiar código
-mvn -q -DskipTests -pl pylos-student -am exec:java -D"exec.mainClass=be.kuleuven.pylos.main.PylosMain"
-This runs the internal tournament or batch simulation (often 1000 games).
+```bash
+mvn -q -DskipTests -pl pylos-student -am exec:java \
+    -D"exec.mainClass=be.kuleuven.pylos.main.PylosMain"
+```
 
-9. Known Limitations and Future Work
-Currently no alpha-beta pruning or move ordering beyond basic heuristics.
+This will execute all registered players against each other for a large number of rounds (typically 1000).
 
-The evaluation function can be expanded with:
+🚧 Limitations and Future Improvements
+- ❌ No alpha-beta pruning
+→ Currently evaluates all branches; adding pruning will allow deeper searches.
 
-square-completion detection (threats of 3-of-4),
+- ⚖ Basic heuristic — can be improved with:
+  - Square-completion threat detection (3-of-4 pattern)
+  - Center control prioritization on lower layers 
+  - Smarter removal evaluation integrated into recursion
 
-center-control bonuses on low layers,
-
-removal-value estimation.
-
-The optional removal decision could also be integrated directly into the minimax recursion rather than handled greedily.
-
-10. Summary
-This implementation completes the requirements for Part 1 – Minimax of the Pylos AI project.
-It correctly:
-
-Simulates all legal moves and removals,
-
-Maintains consistent state through precise undo operations,
-
-Evaluates game positions reasonably,
-
-Demonstrates working decision-making logic that can defeat simpler opponents.
-
-Further optimization (alpha-beta, better heuristics, transposition tables) can be added later for Part 2.
+Future versions (Part 2) will likely incorporate alpha-beta pruning, advanced heuristics, and move ordering to achieve higher efficiency and competitiveness.
