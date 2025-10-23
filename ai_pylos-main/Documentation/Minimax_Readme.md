@@ -159,4 +159,4 @@ Limitations and Future Improvements:
   - Center control prioritization on lower layers 
   - Smarter removal evaluation integrated into recursion
 
-Future versions (Part 2) will likely incorporate alpha-beta pruning, advanced heuristics, and move ordering to achieve higher efficiency and competitiveness.
+Future versions will likely incorporate alpha-beta pruning, advanced heuristics, and move ordering to achieve higher efficiency and competitiveness.
