@@ -11,6 +11,12 @@ import java.util.*;
  */
 public class StudentPlayer extends PylosPlayer {
 
+    // Small bias to avoid comfy zero-eval lines
+    private static final double CONTEMPT = 0.25;
+
+    public StudentPlayer() { /* tunables are hardcoded below */ }
+
+
     /* ================= Transposition table ================= */
     private static final int TT_SIZE = 1 << 20; // ~1M
     private static final long TT_MASK = TT_SIZE - 1;
@@ -91,7 +97,7 @@ public class StudentPlayer extends PylosPlayer {
     public void doRemoveOrPass(PylosGameIF game, PylosBoard board) {
         double base = mobility(board, this, null);
         PylosSphere pick = null;
-        double bestGain = 0.0;
+        double bestGain = -0.1; // slightly negative to prefer removing over passing when close
         for (PylosSphere s : board.getSpheres(this)) {
             if (!s.canRemove()) continue;
             double gain = mobility(board, this, s) - base - 0.2 * s.getLocation().Z;
@@ -280,7 +286,7 @@ public class StudentPlayer extends PylosPlayer {
             PylosLocation from = m.sphere.isReserve() ? null : m.sphere.getLocation();
 
             sim.moveSphere(m.sphere, m.to);
-            if (sim.getState() == PylosGameState.REMOVE_FIRST) score += 120.0;
+            if (sim.getState() == PylosGameState.REMOVE_FIRST) score += 200.20;
             if (from == null) sim.undoAddSphere(m.sphere, ps, pc);
             else              sim.undoMoveSphere(m.sphere, from, ps, pc);
 
@@ -299,13 +305,13 @@ public class StudentPlayer extends PylosPlayer {
         double dx = l.X - cx, dy = l.Y - cy;
         double d2 = dx*dx + dy*dy;
         double edge = (l.X == 0 || l.Y == 0 || l.X == n-1 || l.Y == n-1) ? -0.5 : 0.0;
-        return -0.6 * d2 + edge + (l.Z == 0 ? 0.6 : 0.2);
+        return -0.6 * d2 + edge + (l.Z == 0 ? 0.7 : 0.25);
     }
 
     /* ================= Evaluation ================= */
     private double signedEval(PylosBoard board, PylosPlayerColor sideToMove) {
         double e = eval(board);
-        return (sideToMove == this.PLAYER_COLOR) ? e : -e;
+        return (sideToMove == this.PLAYER_COLOR) ? (e + CONTEMPT) : (-e - CONTEMPT);
     }
 
     private double eval(PylosBoard board) {
@@ -332,11 +338,11 @@ public class StudentPlayer extends PylosPlayer {
         int myThreats = countThreats3of4(occMy, occAny);
         int opThreats = countThreats3of4(occOp, occAny);
 
-        return  18.0 * (myRes     - opRes)   // reserve advantage
-                +  8.0 * (mySquares - opSquares)
-                +  3.0 * (myThreats - opThreats)
-                +  1.0 * (myZ       - opZ)
-                +  0.15* (myMob     - opMob);
+        return  16.0 * (myRes     - opRes)   // reserve advantage (lower -> place earlier)
+                + 14.0 * (mySquares - opSquares)
+                +   7.0 * (myThreats - opThreats)
+                +   1.2 * (myZ       - opZ)
+                +   0.15* (myMob     - opMob);
     }
 
     private int countSquares(boolean[][][] occ) {
